@@ -110,6 +110,8 @@ Task("Deploy-Stack")
         WorkingDirectory = new DirectoryPath("./aws/")
     });
 
+    Information(result);
+
     if (result != 0) {
       throw new Exception("aws cloudformation deploy failed.");
     }

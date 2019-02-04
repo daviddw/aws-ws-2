@@ -19,7 +19,6 @@ var target = Argument("target", "Default");
 
 Task("Default")
   .IsDependentOn("Clean")
-  .IsDependentOn("Build")
   .IsDependentOn("Deploy");
 
 Task("Clean")
@@ -106,10 +105,14 @@ Task("Deploy-Lambdas")
 
 Task("Deploy-Stack")
   .Does(() => {
-    RunCommand(Context, "aws", new ProcessSettings {
+    var result = RunCommand(Context, "aws", new ProcessSettings {
         Arguments = $"cloudformation deploy --stack-name {stackName}-api --template-file gateway.yaml --capabilities CAPABILITY_IAM --parameter-overrides BucketName={bucketName} OnConnectLambdaPackage={onconnectLambdaFilename} OnDisconnectLambdaPackage={ondisconnectLambdaFilename}",
         WorkingDirectory = new DirectoryPath("./aws/")
     });
+
+    if (result != 0) {
+      throw new Exception("aws cloudformation deploy failed.");
+    }
   });
 
 Task("Deploy")
@@ -120,15 +123,23 @@ Task("Deploy")
 
 Task("Recall")
   .Does(() => {
-      RunCommand(Context, "aws", new ProcessSettings {
+      var result = RunCommand(Context, "aws", new ProcessSettings {
           Arguments = $"cloudformation delete-stack --stack-name {stackName}-api",
           WorkingDirectory = new DirectoryPath("./aws/")
       });
 
-      RunCommand(Context, "aws", new ProcessSettings {
+      if (result != 0) {
+        throw new Exception("aws cloudformation delete-stack failed.");
+      }
+
+      result = RunCommand(Context, "aws", new ProcessSettings {
           Arguments = $"cloudformation wait stack-delete-complete --stack-name {stackName}-api",
           WorkingDirectory = new DirectoryPath("./aws/")
       });
+
+      if (result != 0) {
+        throw new Exception("aws wait stack-delete-complete failed.");
+      };
   });
 
 public static int RunCommand(ICakeContext context, string command, ProcessSettings settings = null) {

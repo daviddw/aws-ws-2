@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Stack that creates an API Gateway with hook and websockets
+
+Parameters:
+
+  BucketName:
+    Type: String
+    Description: Name of the s3 bucket
+
+  OnConnectLambdaPackage:
+    Type: String
+    Description: Name of the onconnect lambda package
+
+  OnDisconnectLambdaPackage:
+    Type: String
+    Description: Name of the ondisconnect lambda package
+
+Resources:
+
+  onConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: dotnetcore2.1
+      Handler: onconnect-lambda::com.drysdalewilson.onconnect.Function::Handler
+      CodeUri: 
+        Bucket: !Ref BucketName
+        Key: !Ref OnConnectLambdaPackage
+
+  onDisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: dotnetcore2.1
+      Handler: ondisconnect-lambda::com.drysdalewilson.ondisconnect.Function::Handler
+      CodeUri: 
+        Bucket: !Ref BucketName
+        Key: !Ref OnDisconnectLambdaPackage

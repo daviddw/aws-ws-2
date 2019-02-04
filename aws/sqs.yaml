@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates a topic and queue with associated permissions
+
+Resources:
+
+  queue:
+    Type: AWS::SQS::Queue
+
+  topic:
+    Type: AWS::SNS::Topic
+
+# subscribe queue to topic    
+  subscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref topic
+      Endpoint: !GetAtt queue.Arn
+      Protocol: sqs
+      RawMessageDelivery: true
+
+# grants permission for topic to send a message to queue
+  queuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref queue
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action:
+              - sqs:SendMessage
+            Resource: "*"
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref topic
+
+Outputs:
+
+  QueueName:
+    Description: Stack's queue's name
+    Value: !Ref queue
+    Export:
+      Name: awsWsQueueName
+
+  TopicArn:
+    Description: Stack's topic's Arn
+    Value: !Ref topic
+    Export:
+      Name: awsWsTopicArn

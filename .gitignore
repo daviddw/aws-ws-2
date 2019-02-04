@@ -11,10 +11,9 @@
 
 .vs/
 
-## Ignore FAKE files
-.fake/
-fake.fsx.lock
-buildpackages/
+## Ignore CAKE files
+tools/*
+!tools/packages.config
 
 ## Mac OS X files
 .DS_Store

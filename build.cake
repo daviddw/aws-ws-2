@@ -12,8 +12,7 @@ var secretKey = EnvironmentVariable("AWS_SECRET_ACCESS_KEY") ?? "";
 var accessKey = EnvironmentVariable("AWS_ACCESS_KEY_ID") ?? "";
 
 var tag = $"{vcsRef}-{vcsBranch}".Replace('/', '-');
-var onconnectLambdaFilename = $"aws-ws-2-lambda-onconnect-{tag}.zip";
-var ondisconnectLambdaFilename = $"aws-ws-2-lambda-ondisconnect-{tag}.zip";
+var lambdaFilename = $"aws-ws-2-lambda-{tag}.zip";
 
 var target = Argument("target", "Default");
 
@@ -23,30 +22,16 @@ Task("Default")
 
 Task("Clean")
   .Does(() => {
-    if (DirectoryExists("./src/onconnect-lambda/bin"))
+    if (DirectoryExists("./src/aws-ws-lambda-test/bin"))
     {
-      DeleteDirectory("./src/onconnect-lambda/bin", new DeleteDirectorySettings {
+      DeleteDirectory("./src/aws-ws-lambda-test/bin", new DeleteDirectorySettings {
         Recursive = true
       });
     }
     
-    if (DirectoryExists("./src/onconnect-lambda/obj"))
+    if (DirectoryExists("./src/aws-ws-lambda-test/obj"))
     {
-      DeleteDirectory("./src/onconnect-lambda/obj", new DeleteDirectorySettings {
-        Recursive = true
-      });
-    }
-
-    if (DirectoryExists("./src/ondisconnect-lambda/bin"))
-    {
-      DeleteDirectory("./src/ondisconnect-lambda/bin", new DeleteDirectorySettings {
-        Recursive = true
-      });
-    }
-    
-    if (DirectoryExists("./src/ondisconnect-lambda/obj"))
-    {
-      DeleteDirectory("./src/ondisconnect-lambda/obj", new DeleteDirectorySettings {
+      DeleteDirectory("./src/aws-ws-lambda-test/obj", new DeleteDirectorySettings {
         Recursive = true
       });
     }
@@ -73,29 +58,20 @@ Task("Publish")
   .Does(() => {
     var settings = new DotNetCorePublishSettings
     {
-        Configuration = "Release"
+        Configuration = "Release",
     };
 
     DotNetCorePublish("./src/", settings);
 
     CreateDirectory("deploy");
 
-    Zip("./src/onconnect-lambda/bin/Release/netcoreapp2.1/publish", $"./deploy/{onconnectLambdaFilename}");
-
-    Zip("./src/ondisconnect-lambda/bin/Release/netcoreapp2.1/publish", $"./deploy/{ondisconnectLambdaFilename}");
+    Zip("./src/aws-ws-lambda-test/bin/Release/netcoreapp2.1/publish", $"./deploy/{lambdaFilename}");
   });
 
-Task("Deploy-Lambdas")
+Task("Deploy-Lambda")
   .IsDependentOn("Publish")
   .Does(async () => {
-    await S3Upload($"./deploy/{onconnectLambdaFilename}", $"{onconnectLambdaFilename}",
-      new UploadSettings()
-        .SetAccessKey(accessKey)
-        .SetSecretKey(secretKey)
-        .SetRegion(defaultRegion)
-        .SetBucketName(bucketName));
-
-    await S3Upload($"./deploy/{ondisconnectLambdaFilename}", $"{ondisconnectLambdaFilename}",
+    await S3Upload($"./deploy/{lambdaFilename}", $"{lambdaFilename}",
       new UploadSettings()
         .SetAccessKey(accessKey)
         .SetSecretKey(secretKey)
@@ -106,7 +82,7 @@ Task("Deploy-Lambdas")
 Task("Deploy-Stack")
   .Does(() => {
     var result = RunCommand(Context, "aws", new ProcessSettings {
-        Arguments = $"cloudformation deploy --stack-name {stackName}-api --template-file gateway.yaml --capabilities CAPABILITY_IAM --parameter-overrides BucketName={bucketName} OnConnectLambdaPackage={onconnectLambdaFilename} OnDisconnectLambdaPackage={ondisconnectLambdaFilename}",
+        Arguments = $"cloudformation deploy --stack-name {stackName}-api --template-file gateway.yaml --capabilities CAPABILITY_IAM --parameter-overrides BucketName={bucketName} LambdaPackage={lambdaFilename}",
         WorkingDirectory = new DirectoryPath("./aws/")
     });
 
@@ -116,7 +92,7 @@ Task("Deploy-Stack")
   });
 
 Task("Deploy")
-  .IsDependentOn("Deploy-Lambdas")
+  .IsDependentOn("Deploy-Lambda")
   .IsDependentOn("Deploy-Stack")
   .Does(() => {
   });

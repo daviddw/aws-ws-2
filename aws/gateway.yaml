@@ -8,30 +8,66 @@ Parameters:
     Type: String
     Description: Name of the s3 bucket
 
-  OnConnectLambdaPackage:
+  LambdaPackage:
     Type: String
-    Description: Name of the onconnect lambda package
-
-  OnDisconnectLambdaPackage:
-    Type: String
-    Description: Name of the ondisconnect lambda package
+    Description: Name of the lambda package
 
 Resources:
+
+  connectionTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: "connectionId"
+        AttributeType: "S"
+      KeySchema:
+      - AttributeName: "connectionId"
+        KeyType: "HASH"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      SSESpecification:
+        SSEEnabled: True
 
   onConnectFunction:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: dotnetcore2.1
-      Handler: onconnect-lambda::com.drysdalewilson.onconnect.Function::Handler
+      Handler: aws-ws-lambda-test::com.drysdale_wilson.ws_lambda_test.OnConnect::Handler
       CodeUri: 
         Bucket: !Ref BucketName
-        Key: !Ref OnConnectLambdaPackage
+        Key: !Ref LambdaPackage
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref connectionTable
 
   onDisconnectFunction:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: dotnetcore2.1
-      Handler: ondisconnect-lambda::com.drysdalewilson.ondisconnect.Function::Handler
+      Handler: aws-ws-lambda-test::com.drysdale_wilson.ws_lambda_test.OnDisconnect::Handler
       CodeUri: 
         Bucket: !Ref BucketName
-        Key: !Ref OnDisconnectLambdaPackage
+        Key: !Ref LambdaPackage
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref connectionTable
+
+  sendMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: dotnetcore2.1
+      Handler: aws-ws-lambda-test::com.drysdale_wilson.ws_lambda_test.SendMessage::Handler
+      CodeUri: 
+        Bucket: !Ref BucketName
+        Key: !Ref LambdaPackage
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref connectionTable
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Action:
+          - 'execute-api:ManageConnections'
+          Resource:
+          - 'arn:aws:execute-api:*:*:*/@connections/*'

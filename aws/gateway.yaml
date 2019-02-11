@@ -29,45 +29,165 @@ Resources:
       SSESpecification:
         SSEEnabled: True
 
+  websocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: aws-ws-2-test-api
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  connectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref websocketApi
+      RouteKey: $connect
+      Target:
+        !Join [ "/", [ "integrations", !Ref connectIntegration ] ]
+
+  connectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref websocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${onConnectFunction.Arn}/invocations
+
   onConnectFunction:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: dotnetcore2.1
-      Handler: aws-ws-lambda-test::com.drysdale_wilson.ws_lambda_test.OnConnect::Handler
+      Handler: aws-ws-lambda-test::ws_lambda_test.OnConnect::Handler
       CodeUri: 
         Bucket: !Ref BucketName
         Key: !Ref LambdaPackage
+      Timeout: 30
       Environment:
         Variables:
           TABLE_NAME: !Ref connectionTable
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: !Ref connectionTable
+
+  onConnectPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - websocketApi
+      - onConnectFunction
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref onConnectFunction
+      Principal: apigateway.amazonaws.com
+
+  disconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref websocketApi
+      RouteKey: $disconnect
+      Target:
+        !Join [ "/", [ "integrations", !Ref disconnectIntegration ] ]
+
+  disconnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref websocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${onDisconnectFunction.Arn}/invocations
 
   onDisconnectFunction:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: dotnetcore2.1
-      Handler: aws-ws-lambda-test::com.drysdale_wilson.ws_lambda_test.OnDisconnect::Handler
+      Handler: aws-ws-lambda-test::ws_lambda_test.OnDisconnect::Handler
       CodeUri: 
         Bucket: !Ref BucketName
         Key: !Ref LambdaPackage
+      Timeout: 30
       Environment:
         Variables:
           TABLE_NAME: !Ref connectionTable
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: !Ref connectionTable
+
+  onDisconnectPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - websocketApi
+      - onDisconnectFunction
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref onDisconnectFunction
+      Principal: apigateway.amazonaws.com
+
+  sendMessageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref websocketApi
+      RouteKey: sendMessage
+      Target:
+        !Join [ "/", [ "integrations", !Ref sendMessageIntegration ] ]
+
+  sendMessageIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref websocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${sendMessageFunction.Arn}/invocations
 
   sendMessageFunction:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: dotnetcore2.1
-      Handler: aws-ws-lambda-test::com.drysdale_wilson.ws_lambda_test.SendMessage::Handler
+      Handler: aws-ws-lambda-test::ws_lambda_test.SendMessage::Handler
       CodeUri: 
         Bucket: !Ref BucketName
         Key: !Ref LambdaPackage
+      Timeout: 30
       Environment:
         Variables:
           TABLE_NAME: !Ref connectionTable
       Policies:
+      - DynamoDBCrudPolicy:
+          TableName: !Ref connectionTable
       - Statement:
         - Effect: Allow
           Action:
           - 'execute-api:ManageConnections'
           Resource:
           - 'arn:aws:execute-api:*:*:*/@connections/*'
+
+  sendMessagePermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - websocketApi
+      - sendMessageFunction
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref sendMessageFunction
+      Principal: apigateway.amazonaws.com
+
+  deployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    Properties:
+      ApiId: !Ref websocketApi
+    DependsOn:
+      - connectRoute
+      - disconnectRoute
+      - sendMessageRoute
+
+  devStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref websocketApi
+      StageName: "dev"
+      Description: "Development stage"
+      DeploymentId: !Ref deployment
+
+  
+Outputs:
+
+  WebSocketUri:
+    Description: "The WSS Protocol URI to connect to"
+    Value: !Join [ "", [ "wss://", !Ref websocketApi, ".execute-api.", !Ref "AWS::Region", ".amazonaws.com/", !Ref devStage] ]

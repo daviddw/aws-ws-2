@@ -89,6 +89,15 @@ Task("Deploy-Stack")
     if (result != 0) {
       throw new Exception("aws cloudformation deploy failed.");
     }
+
+    result = RunCommand(Context, "aws", new ProcessSettings {
+        Arguments = $"cloudformation describe-stacks --stack-name aws-service-test2-api --query 'Stacks[0].Outputs[0].OutputValue'",
+        WorkingDirectory = new DirectoryPath("./aws/")
+    });
+
+    if (result != 0) {
+      throw new Exception("aws cloudformation describe-stacks failed.");
+    }
   });
 
 Task("Deploy")

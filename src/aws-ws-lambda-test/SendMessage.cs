@@ -1,23 +1,126 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Net;
+using System.Text;
+using System.Threading.Tasks;
+using Amazon;
+using Amazon.ApiGatewayManagementApi;
+using Amazon.ApiGatewayManagementApi.Model;
+using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
 using Amazon.Lambda.APIGatewayEvents;
 using Amazon.Lambda.Core;
+using Newtonsoft.Json.Linq;
 
-namespace com.drysdale_wilson.ws_lambda_test
+namespace ws_lambda_test
 {
     public class SendMessage
     {
-        public APIGatewayProxyResponse Handler(APIGatewayProxyRequest input, ILambdaContext context)
+        public async Task<APIGatewayProxyResponse> Handler(APIGatewayProxyRequest input, ILambdaContext context)
         {
-            var response = new APIGatewayProxyResponse
+            var client = new AmazonDynamoDBClient();
+
+            var scanRequest = new ScanRequest
             {
-                StatusCode = (int)HttpStatusCode.OK,
-                Body = "sendmessage",
-                Headers = new Dictionary<string, string> { { "Content-Type", "text/plain" } },
+                TableName = Environment.ExpandEnvironmentVariables("%TABLE_NAME%"),
+                ProjectionExpression = "connectionId"
             };
 
-            return response;
+            ScanResponse connections = null;
+
+            try
+            {
+                connections = await client.ScanAsync(scanRequest);
+            }
+            catch(Exception e)
+            {
+                return new APIGatewayProxyResponse
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError,
+                    Body = e.Message,
+                    Headers = new Dictionary<string, string> { { "Content-Type", "text/plain" } },
+                };
+            }
+
+            Console.WriteLine(input.Body);
+
+            var data = JObject.Parse(input.Body)["data"].ToString();
+            var byteArray = Encoding.UTF8.GetBytes(data);
+            var postData = new MemoryStream(byteArray);
+
+            var config = new AmazonApiGatewayManagementApiConfig
+            {
+                ServiceURL = $"{input.RequestContext.DomainName}/{input.RequestContext.Stage}"
+            };
+
+            Console.WriteLine(config.ServiceURL);
+
+            var apiClient = new AmazonApiGatewayManagementApiClient(config);
+
+            var connectionIds = connections.Items.Select(item => item["connectionId"].S).ToList();
+
+            foreach(var connectionId in connectionIds)
+            {
+                Console.WriteLine($"connectionId={connectionId} data={data}");
+                try
+                {
+                    var postToRequest = new PostToConnectionRequest
+                    {
+                        ConnectionId = connectionId,
+                        Data = postData
+                    };
+
+                    Console.WriteLine($"connectionId={connectionId}, data={postData}");
+                    var result = await apiClient.PostToConnectionAsync(postToRequest);
+                    Console.WriteLine($"result={result.HttpStatusCode}, metadata={result.ResponseMetadata.Metadata}");
+                }
+                catch (GoneException)
+                {
+                    Console.WriteLine($"Found dead connection, deleting {connectionId}");
+
+                    var attributes = new Dictionary<string, AttributeValue>();
+
+                    attributes["connectionId"] = new AttributeValue { S = connectionId };
+
+                    var deleteRequest = new DeleteItemRequest
+                    {
+                        TableName = Environment.ExpandEnvironmentVariables("%TABLE_NAME%"),
+                        Key = attributes
+                    };
+
+                    try
+                    {
+                        await client.DeleteItemAsync(deleteRequest);
+                    }
+                    catch(Exception e)
+                    {
+                        return new APIGatewayProxyResponse
+                        {
+                            StatusCode = (int)HttpStatusCode.InternalServerError,
+                            Body = e.Message,
+                            Headers = new Dictionary<string, string> { { "Content-Type", "text/plain" } },
+                        };
+                    }
+                }
+                catch (Exception e)
+                {
+                    return new APIGatewayProxyResponse
+                    {
+                        StatusCode = (int)HttpStatusCode.InternalServerError,
+                        Body = e.Message,
+                        Headers = new Dictionary<string, string> { { "Content-Type", "text/plain" } },
+                    };
+                }
+            }
+
+            return new APIGatewayProxyResponse
+            {
+                StatusCode = (int)HttpStatusCode.OK,
+                Body = "data sent",
+                Headers = new Dictionary<string, string> { { "Content-Type", "text/plain" } },
+            };
         }
     }
 }

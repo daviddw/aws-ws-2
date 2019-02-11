@@ -44,18 +44,13 @@ namespace ws_lambda_test
                 };
             }
 
-            Console.WriteLine(input.Body);
-
             var data = JObject.Parse(input.Body)["data"].ToString();
             var byteArray = Encoding.UTF8.GetBytes(data);
-            var postData = new MemoryStream(byteArray);
 
             var config = new AmazonApiGatewayManagementApiConfig
             {
-                ServiceURL = $"{input.RequestContext.DomainName}/{input.RequestContext.Stage}"
+                ServiceURL = $"https://{input.RequestContext.DomainName}/{input.RequestContext.Stage}"
             };
-
-            Console.WriteLine(config.ServiceURL);
 
             var apiClient = new AmazonApiGatewayManagementApiClient(config);
 
@@ -63,7 +58,8 @@ namespace ws_lambda_test
 
             foreach(var connectionId in connectionIds)
             {
-                Console.WriteLine($"connectionId={connectionId} data={data}");
+                var postData = new MemoryStream(byteArray);
+
                 try
                 {
                     var postToRequest = new PostToConnectionRequest
@@ -72,9 +68,7 @@ namespace ws_lambda_test
                         Data = postData
                     };
 
-                    Console.WriteLine($"connectionId={connectionId}, data={postData}");
-                    var result = await apiClient.PostToConnectionAsync(postToRequest);
-                    Console.WriteLine($"result={result.HttpStatusCode}, metadata={result.ResponseMetadata.Metadata}");
+                    await apiClient.PostToConnectionAsync(postToRequest);
                 }
                 catch (GoneException)
                 {

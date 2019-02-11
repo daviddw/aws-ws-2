@@ -14,6 +14,8 @@ var accessKey = EnvironmentVariable("AWS_ACCESS_KEY_ID") ?? "";
 var tag = $"{vcsRef}-{vcsBranch}".Replace('/', '-');
 var lambdaFilename = $"aws-ws-2-lambda-{tag}.zip";
 
+var deploymentState = "dev";
+
 var target = Argument("target", "Default");
 
 Task("Default")
@@ -82,7 +84,7 @@ Task("Deploy-Lambda")
 Task("Deploy-Stack")
   .Does(() => {
     var result = RunCommand(Context, "aws", new ProcessSettings {
-        Arguments = $"cloudformation deploy --stack-name {stackName}-api --template-file gateway.yaml --capabilities CAPABILITY_IAM --parameter-overrides BucketName={bucketName} LambdaPackage={lambdaFilename}",
+        Arguments = $"cloudformation deploy --stack-name {stackName}-api --template-file gateway.yaml --capabilities CAPABILITY_IAM --parameter-overrides BucketName={bucketName} LambdaPackage={lambdaFilename} Stage={deploymentState}",
         WorkingDirectory = new DirectoryPath("./aws/")
     });
 

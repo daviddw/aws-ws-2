@@ -12,6 +12,10 @@ Parameters:
     Type: String
     Description: Name of the lambda package
 
+  Stage:
+    Type: String
+    Description: Name of deployment stage
+
 Resources:
 
   connectionTable:
@@ -177,12 +181,12 @@ Resources:
       - disconnectRoute
       - sendMessageRoute
 
-  devStage:
+  stage:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
       ApiId: !Ref websocketApi
-      StageName: "dev"
-      Description: "Development stage"
+      StageName: !Ref Stage
+      Description: !Join [ " ", [ !Ref Stage, "stage" ] ]
       DeploymentId: !Ref deployment
 
   
@@ -190,4 +194,4 @@ Outputs:
 
   WebSocketUri:
     Description: "The WSS Protocol URI to connect to"
-    Value: !Join [ "", [ "wss://", !Ref websocketApi, ".execute-api.", !Ref "AWS::Region", ".amazonaws.com/", !Ref devStage] ]
+    Value: !Join [ "", [ "wss://", !Ref websocketApi, ".execute-api.", !Ref "AWS::Region", ".amazonaws.com/", !Ref stage] ]

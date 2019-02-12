@@ -2,6 +2,8 @@
 
 var stackName = "aws-service-test2";
 
+var branch = EnvironmentVariable("APPVEYOR_REPO_BRANCH");
+
 var vcsRef = EnvironmentVariable("VCSREF") ?? "";
 var vcsBranch = EnvironmentVariable("VCSBRANCH") ?? "";
 
@@ -17,8 +19,6 @@ var lambdaFilename = $"aws-ws-2-lambda-{tag}.zip";
 var deploymentState = "dev";
 
 var target = Argument("target", "Default");
-
-Information(EnvironmentVariable("APPVEYOR_REPO_BRANCH"));
 
 Task("Default")
   .IsDependentOn("Clean")
@@ -85,22 +85,29 @@ Task("Deploy-Lambda")
 
 Task("Deploy-Stack")
   .Does(() => {
-    var result = RunCommand(Context, "aws", new ProcessSettings {
-        Arguments = $"cloudformation deploy --stack-name {stackName}-api --template-file gateway.yaml --capabilities CAPABILITY_IAM --parameter-overrides BucketName={bucketName} LambdaPackage={lambdaFilename} Stage={deploymentState}",
-        WorkingDirectory = new DirectoryPath("./aws/")
-    });
+    if (string.IsNullOrWhiteSpace(branch) || branch == "master")
+    {
+      var result = RunCommand(Context, "aws", new ProcessSettings {
+          Arguments = $"cloudformation deploy --stack-name {stackName}-api --template-file gateway.yaml --capabilities CAPABILITY_IAM --parameter-overrides BucketName={bucketName} LambdaPackage={lambdaFilename} Stage={deploymentState}",
+          WorkingDirectory = new DirectoryPath("./aws/")
+      });
 
-    if (result != 0) {
-      throw new Exception("aws cloudformation deploy failed.");
+      if (result != 0) {
+        throw new Exception("aws cloudformation deploy failed.");
+      }
+
+      result = RunCommand(Context, "aws", new ProcessSettings {
+          Arguments = $"cloudformation describe-stacks --stack-name aws-service-test2-api --query 'Stacks[0].Outputs[0].OutputValue'",
+          WorkingDirectory = new DirectoryPath("./aws/")
+      });
+
+      if (result != 0) {
+        throw new Exception("aws cloudformation describe-stacks failed.");
+      }
     }
-
-    result = RunCommand(Context, "aws", new ProcessSettings {
-        Arguments = $"cloudformation describe-stacks --stack-name aws-service-test2-api --query 'Stacks[0].Outputs[0].OutputValue'",
-        WorkingDirectory = new DirectoryPath("./aws/")
-    });
-
-    if (result != 0) {
-      throw new Exception("aws cloudformation describe-stacks failed.");
+    else
+    {
+      Information($"aws cloudformation deploy --stack-name {stackName}-api --template-file gateway.yaml --capabilities CAPABILITY_IAM --parameter-overrides BucketName={bucketName} LambdaPackage={lambdaFilename} Stage={deploymentState}");
     }
   });
 

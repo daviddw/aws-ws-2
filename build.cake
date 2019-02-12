@@ -2,8 +2,6 @@
 
 var stackName = "aws-service-test2";
 
-var branch = EnvironmentVariable("APPVEYOR_REPO_BRANCH");
-
 var vcsRef = EnvironmentVariable("VCSREF") ?? "";
 var vcsBranch = EnvironmentVariable("VCSBRANCH") ?? "";
 
@@ -16,7 +14,9 @@ var accessKey = EnvironmentVariable("AWS_ACCESS_KEY_ID") ?? "";
 var tag = $"{vcsRef}-{vcsBranch}".Replace('/', '-');
 var lambdaFilename = $"aws-ws-2-lambda-{tag}.zip";
 
-var deploymentState = "dev";
+var isMasterBranch = vcsBranch == "master";
+
+var deploymentState = isMasterBranch ? "prod" : "dev";
 
 var target = Argument("target", "Default");
 
@@ -85,7 +85,7 @@ Task("Deploy-Lambda")
 
 Task("Deploy-Stack")
   .Does(() => {
-    if (string.IsNullOrWhiteSpace(branch) || branch == "master")
+    if (string.IsNullOrWhiteSpace(vcsBranch) || isMasterBranch)
     {
       var result = RunCommand(Context, "aws", new ProcessSettings {
           Arguments = $"cloudformation deploy --stack-name {stackName}-api --template-file gateway.yaml --capabilities CAPABILITY_IAM --parameter-overrides BucketName={bucketName} LambdaPackage={lambdaFilename} Stage={deploymentState}",

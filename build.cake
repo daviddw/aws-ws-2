@@ -18,6 +18,8 @@ var deploymentState = "dev";
 
 var target = Argument("target", "Default");
 
+Information(EnvironmentVariable("APPVEYOR_REPO_BRANCH"));
+
 Task("Default")
   .IsDependentOn("Clean")
   .IsDependentOn("Deploy");

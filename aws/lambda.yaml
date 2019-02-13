@@ -18,7 +18,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: dotnetcore2.1
-      Handler: aws-lambda-test::aws_lambda_test.Function::FunctionHandler
+      Handler: aws-lambda-test::ws_lambda_test.AppVeyorPost::Handler
       CodeUri: 
         Bucket: !Ref BucketName
         Key: !Ref LambdaPackage

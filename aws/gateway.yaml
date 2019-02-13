@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Stack that creates an API Gateway with hook and websockets
+Description: Stack that creates an API Gateway with websockets
 
 Parameters:
 
@@ -189,9 +189,28 @@ Resources:
       Description: !Join [ " ", [ !Ref Stage, "stage" ] ]
       DeploymentId: !Ref deployment
 
+  sqsSendMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: dotnetcore2.1
+      Handler: aws-ws-lambda-test::ws_lambda_test.SqsSendMessage::Handler
+      CodeUri: 
+        Bucket: !Ref BucketName
+        Key: !Ref LambdaPackage
+      Timeout: 30
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref connectionTable
+          WSENDPOINT: !Join [ "", [ !Ref websocketApi, ".execute-api.", !Ref "AWS::Region", ".amazonaws.com/", !Ref stage] ]
+      Events:
+        sqsEvent:
+          Type: SQS
+          Properties:
+            Queue: !ImportValue awsWsQueueName.Arn
+            BatchSize: 10
   
 Outputs:
 
   WebSocketUri:
-    Description: "The WSS Protocol URI to connect to"
+    Description: "Stack's WebSocket URI"
     Value: !Join [ "", [ "wss://", !Ref websocketApi, ".execute-api.", !Ref "AWS::Region", ".amazonaws.com/", !Ref stage] ]

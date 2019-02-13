@@ -5,20 +5,20 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
-using Amazon;
 using Amazon.ApiGatewayManagementApi;
 using Amazon.ApiGatewayManagementApi.Model;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Lambda.APIGatewayEvents;
 using Amazon.Lambda.Core;
+using Amazon.Lambda.SQSEvents;
 using Newtonsoft.Json.Linq;
 
 namespace ws_lambda_test
 {
-    public class SendMessage
+    public class SqsSendMessage
     {
-        public async Task<APIGatewayProxyResponse> Handler(APIGatewayProxyRequest input, ILambdaContext context)
+        public async Task<APIGatewayProxyResponse> Handler(SQSEvent input, ILambdaContext context)
         {
             var client = new AmazonDynamoDBClient();
 
@@ -34,7 +34,7 @@ namespace ws_lambda_test
             {
                 connections = await client.ScanAsync(scanRequest);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 return new APIGatewayProxyResponse
                 {
@@ -44,12 +44,9 @@ namespace ws_lambda_test
                 };
             }
 
-            var data = JObject.Parse(input.Body)["data"].ToString();
-            var byteArray = Encoding.UTF8.GetBytes(data);
-
             var config = new AmazonApiGatewayManagementApiConfig
             {
-                ServiceURL = $"https://{input.RequestContext.DomainName}/{input.RequestContext.Stage}"
+                ServiceURL = Environment.ExpandEnvironmentVariables("%WSENDPOINT%")
             };
 
             Console.WriteLine(config.ServiceURL);
@@ -58,39 +55,53 @@ namespace ws_lambda_test
 
             var connectionIds = connections.Items.Select(item => item["connectionId"].S).ToList();
 
-            foreach(var connectionId in connectionIds)
+            foreach (var connectionId in connectionIds)
             {
-                var postData = new MemoryStream(byteArray);
-
-                try
+                foreach (var record in input.Records)
                 {
-                    var postToRequest = new PostToConnectionRequest
-                    {
-                        ConnectionId = connectionId,
-                        Data = postData
-                    };
-
-                    await apiClient.PostToConnectionAsync(postToRequest);
-                }
-                catch (GoneException)
-                {
-                    Console.WriteLine($"Found dead connection, deleting {connectionId}");
-
-                    var attributes = new Dictionary<string, AttributeValue>();
-
-                    attributes["connectionId"] = new AttributeValue { S = connectionId };
-
-                    var deleteRequest = new DeleteItemRequest
-                    {
-                        TableName = Environment.ExpandEnvironmentVariables("%TABLE_NAME%"),
-                        Key = attributes
-                    };
+                    var data = record.Body;
+                    var byteArray = Encoding.UTF8.GetBytes(data);
+                    var postData = new MemoryStream(byteArray);
 
                     try
                     {
-                        await client.DeleteItemAsync(deleteRequest);
+                        var postToRequest = new PostToConnectionRequest
+                        {
+                            ConnectionId = connectionId,
+                            Data = postData
+                        };
+
+                        await apiClient.PostToConnectionAsync(postToRequest);
                     }
-                    catch(Exception e)
+                    catch (GoneException)
+                    {
+                        Console.WriteLine($"Found dead connection, deleting {connectionId}");
+
+                        var attributes = new Dictionary<string, AttributeValue>();
+
+                        attributes["connectionId"] = new AttributeValue { S = connectionId };
+
+                        var deleteRequest = new DeleteItemRequest
+                        {
+                            TableName = Environment.ExpandEnvironmentVariables("%TABLE_NAME%"),
+                            Key = attributes
+                        };
+
+                        try
+                        {
+                            await client.DeleteItemAsync(deleteRequest);
+                        }
+                        catch (Exception e)
+                        {
+                            return new APIGatewayProxyResponse
+                            {
+                                StatusCode = (int)HttpStatusCode.InternalServerError,
+                                Body = e.Message,
+                                Headers = new Dictionary<string, string> { { "Content-Type", "text/plain" } },
+                            };
+                        }
+                    }
+                    catch (Exception e)
                     {
                         return new APIGatewayProxyResponse
                         {
@@ -99,15 +110,6 @@ namespace ws_lambda_test
                             Headers = new Dictionary<string, string> { { "Content-Type", "text/plain" } },
                         };
                     }
-                }
-                catch (Exception e)
-                {
-                    return new APIGatewayProxyResponse
-                    {
-                        StatusCode = (int)HttpStatusCode.InternalServerError,
-                        Body = e.Message,
-                        Headers = new Dictionary<string, string> { { "Content-Type", "text/plain" } },
-                    };
                 }
             }
 

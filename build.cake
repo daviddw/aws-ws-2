@@ -82,7 +82,7 @@ Task("Deploy-Lambda")
         .SetRegion(defaultRegion)
         .SetBucketName(bucketName));
     
-    Information($"Published {bucketName}/{lambdaFilename}");
+    Console.WriteLine($"Published {bucketName}/{lambdaFilename}");
   });
 
 Task("Deploy-Stack")
@@ -127,7 +127,7 @@ Task("Deploy-Stack")
     }
     else
     {
-      Information($"aws cloudformation deploy --stack-name {stackName}-api --template-file gateway.yaml --capabilities CAPABILITY_IAM --parameter-overrides BucketName={bucketName} LambdaPackage={lambdaFilename} Stage={deploymentState}");
+      Console.WriteLine($"aws cloudformation deploy --stack-name {stackName}-api --template-file gateway.yaml --capabilities CAPABILITY_IAM --parameter-overrides BucketName={bucketName} LambdaPackage={lambdaFilename} Stage={deploymentState}");
     }
   });
 
@@ -140,11 +140,11 @@ Task("Deploy")
 Task("Recall")
   .Does(() => {
       WaitStackDelete(Context, $"{stackName}-api");
-      Information($"Deleted stack {stackName}-api");
+      Console.WriteLine($"Deleted stack {stackName}-api");
       WaitStackDelete(Context, $"{stackName}-lambda");
-      Information($"Deleted stack {stackName}-lambda");
+      Console.WriteLine($"Deleted stack {stackName}-lambda");
       WaitStackDelete(Context, $"{stackName}-queue");
-      Information($"Deleted stack {stackName}-queue");
+      Console.WriteLine($"Deleted stack {stackName}-queue");
   });
 
 public static int RunCommand(ICakeContext context, string command, ProcessSettings settings = null) {

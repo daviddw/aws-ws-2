@@ -52,8 +52,6 @@ namespace ws_lambda_test
                 ServiceURL = $"https://{input.RequestContext.DomainName}/{input.RequestContext.Stage}"
             };
 
-            Console.WriteLine(config.ServiceURL);
-
             var apiClient = new AmazonApiGatewayManagementApiClient(config);
 
             var connectionIds = connections.Items.Select(item => item["connectionId"].S).ToList();

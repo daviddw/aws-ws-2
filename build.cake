@@ -11,8 +11,8 @@ var defaultRegion = EnvironmentVariable("AWS_DEFAULT_REGION") ?? "";
 var secretKey = EnvironmentVariable("AWS_SECRET_ACCESS_KEY") ?? "";
 var accessKey = EnvironmentVariable("AWS_ACCESS_KEY_ID") ?? "";
 
-var tag = $"{vcsRef}-{vcsBranch}".Replace('/', '-');
-var lambdaFilename = $"aws-ws-2-lambda-{tag}.zip";
+var tag = $"-{vcsRef}-{vcsBranch}".Replace('/', '-');
+var lambdaFilename = $"aws-ws-2-lambda{tag}.zip";
 
 var isMasterBranch = vcsBranch == "master";
 
@@ -81,6 +81,8 @@ Task("Deploy-Lambda")
         .SetSecretKey(secretKey)
         .SetRegion(defaultRegion)
         .SetBucketName(bucketName));
+    
+    Information($"Published {bucketName}/{lambdaFilename}");
   });
 
 Task("Deploy-Stack")
@@ -106,21 +108,21 @@ Task("Deploy-Stack")
       }
 
       result = RunCommand(Context, "aws", new ProcessSettings {
-          Arguments = $"cloudformation describe-stacks --stack-name aws-service-test2-api --query 'Stacks[0].Outputs[0].OutputValue'",
-          WorkingDirectory = new DirectoryPath("./aws/")
-      });
-
-      if (result != 0) {
-        throw new Exception("aws cloudformation describe-stacks failed.");
-      }
-
-      result = RunCommand(Context, "aws", new ProcessSettings {
           Arguments = $"cloudformation deploy --stack-name {stackName}-api --template-file gateway.yaml --capabilities CAPABILITY_IAM --parameter-overrides BucketName={bucketName} LambdaPackage={lambdaFilename} Stage={deploymentState}",
           WorkingDirectory = new DirectoryPath("./aws/")
       });
 
       if (result != 0) {
         throw new Exception("aws cloudformation deploy failed.");
+      }
+
+      result = RunCommand(Context, "aws", new ProcessSettings {
+          Arguments = $"cloudformation describe-stacks --stack-name aws-service-test2-api --query 'Stacks[0].Outputs[0].OutputValue'",
+          WorkingDirectory = new DirectoryPath("./aws/")
+      });
+
+      if (result != 0) {
+        throw new Exception("aws cloudformation describe-stacks failed.");
       }
     }
     else
@@ -138,8 +140,11 @@ Task("Deploy")
 Task("Recall")
   .Does(() => {
       WaitStackDelete(Context, $"{stackName}-api");
+      Information($"Deleted stack {stackName}-api");
       WaitStackDelete(Context, $"{stackName}-lambda");
-      WaitStackDelete(Context, $"{stackName}-sqs");
+      Information($"Deleted stack {stackName}-lambda");
+      WaitStackDelete(Context, $"{stackName}-queue");
+      Information($"Deleted stack {stackName}-queue");
   });
 
 public static int RunCommand(ICakeContext context, string command, ProcessSettings settings = null) {

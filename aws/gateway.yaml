@@ -201,13 +201,22 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref connectionTable
-          WSENDPOINT: !Join [ "", [ !Ref websocketApi, ".execute-api.", !Ref "AWS::Region", ".amazonaws.com/", !Ref stage] ]
+          WSENDPOINT: !Join [ "", [ "https://", !Ref websocketApi, ".execute-api.", !Ref "AWS::Region", ".amazonaws.com/", !Ref stage] ]
       Events:
         sqsEvent:
           Type: SQS
           Properties:
-            Queue: !ImportValue awsWsQueueName.Arn
+            Queue: !ImportValue awsWsQueueArn
             BatchSize: 10
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: !Ref connectionTable
+      - Statement:
+        - Effect: Allow
+          Action:
+          - 'execute-api:ManageConnections'
+          Resource:
+          - 'arn:aws:execute-api:*:*:*/@connections/*'
   
 Outputs:
 

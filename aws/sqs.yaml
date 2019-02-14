@@ -44,6 +44,12 @@ Outputs:
     Export:
       Name: awsWsQueueName
 
+  QueueArn:
+    Description: Stack's queue's Arn
+    Value: !GetAtt queue.Arn
+    Export:
+      Name: awsWsQueueArn
+
   TopicArn:
     Description: Stack's topic's Arn
     Value: !Ref topic

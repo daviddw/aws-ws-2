@@ -49,8 +49,6 @@ namespace ws_lambda_test
                 ServiceURL = Environment.ExpandEnvironmentVariables("%WSENDPOINT%")
             };
 
-            Console.WriteLine(config.ServiceURL);
-
             var apiClient = new AmazonApiGatewayManagementApiClient(config);
 
             var connectionIds = connections.Items.Select(item => item["connectionId"].S).ToList();

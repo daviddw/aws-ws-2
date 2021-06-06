@@ -7,9 +7,6 @@ on:
     branches: [ master ]
 
 env:
-  AWSKEYNAME: dgdw-test
-  AWSVPCID: vpc-2321784a
-  AWSSUBNETS: subnet-620b4019,subnet-8580e5c8,subnet-8a05c0e3
   CONFIGURATION: Release
   VCSREF: $GITHUB_SHA
   VCSBRANCH: $GITHUB_REF

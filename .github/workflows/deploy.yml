@@ -1,4 +1,4 @@
-name: .NET
+name: AWS WebSocket Serverless Example
 
 on:
   push:
@@ -7,14 +7,12 @@ on:
     branches: [ master ]
 
 env:
-  DOCKERTAG: 1.0.$GITHUB_RUN_NUMBER-%APPVEYOR_REPO_BRANCH%
-  DOCKER_USERNAME: dgdw
   AWSKEYNAME: dgdw-test
   AWSVPCID: vpc-2321784a
   AWSSUBNETS: subnet-620b4019,subnet-8580e5c8,subnet-8a05c0e3
   CONFIGURATION: Release
   VCSREF: $GITHUB_SHA
-  VCSBRANCH: '%APPVEYOR_REPO_BRANCH%'
+  VCSBRANCH: $GITHUB_REF
   S3BUCKET: aws-lambda-test-1
   AWS_DEFAULT_REGION: eu-west-2
 
@@ -35,11 +33,6 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_DEFAULT_REGION }}
-    - name: Docker Login
-      uses: docker/login-action@v1.9.0
-      with:
-        username: ${{ env.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
     - name: Deploy
       run: |
         echo "./build.sh --target=Deploy"

@@ -27,9 +27,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
       - name: Deploy
-        env:
+        with:
           CONFIGURATION: Release
           S3BUCKET: aws-lambda-test-1
-          VCSREF: ${{ env.GITHUB_SHA }}
-          VCSBRANCH: ${{ env.GITHUB_REF }}
+          VCSREF: ${{ github.sha }}
+          VCSBRANCH: ${{ github.ref }}
         run: ./build.sh --target=Deploy

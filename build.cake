@@ -1,9 +1,9 @@
-#addin Cake.AWS.S3&version=0.6.6
+#addin Cake.AWS.S3&version=1.0.0&loaddependencies=true
 
 var stackName = "aws-service-test2";
 
 var vcsRef = EnvironmentVariable("VCSREF") ?? "";
-var vcsBranch = EnvironmentVariable("VCSBRANCH") ?? "";
+var vcsBranch = EnvironmentVariable("VCSBRANCH")?.Split('/').Last() ?? "";
 
 var bucketName = EnvironmentVariable("S3BUCKET") ?? "";
 
@@ -14,7 +14,7 @@ var accessKey = EnvironmentVariable("AWS_ACCESS_KEY_ID") ?? "";
 var tag = $"-{vcsRef}-{vcsBranch}".Replace('/', '-');
 var lambdaFilename = $"aws-ws-2-lambda{tag}.zip";
 
-var isMasterBranch = vcsBranch == "master";
+var isMasterBranch = string.IsNullOrWhiteSpace(vcsBranch) || (vcsBranch == "master");
 
 var deploymentState = isMasterBranch ? "prod" : "dev";
 
@@ -87,7 +87,7 @@ Task("Deploy-Lambda")
 
 Task("Deploy-Stack")
   .Does(() => {
-    if (string.IsNullOrWhiteSpace(vcsBranch) || isMasterBranch)
+    if (isMasterBranch)
     {
       var result = RunCommand(Context, "aws", new ProcessSettings {
           Arguments = $"cloudformation deploy --stack-name {stackName}-queue --template-file sqs.yaml --capabilities CAPABILITY_IAM --parameter-overrides BucketName={bucketName} LambdaPackage={lambdaFilename}",
